@@ -1,0 +1,12 @@
+[settings]
+locked = true
+lockfile = true
+
+[tools]
+python = "latest"
+ruff = "latest"
+ty = "latest"
+bats = "latest"
+
+[tasks.test]
+run = "bats test.bats"
