@@ -17,7 +17,7 @@ function debug_shell() {
 }
 
 function build_image() {
-    podman build -t "$IMAGE_NAME" -f Containerfile.test .
+    podman build -t "$IMAGE_NAME" -f test/Containerfile test
 }
 
 function run_container() {

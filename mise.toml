@@ -9,4 +9,4 @@ ty = "latest"
 bats = "latest"
 
 [tasks.test]
-run = "bats test.bats"
+run = "bats test/cases.bats"
