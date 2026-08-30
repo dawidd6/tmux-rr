@@ -58,11 +58,12 @@ function wait_until_succeeds() {
     local current=0
     while ((current < max)); do
         if "$@"; then
-            break
+            return 0
         fi
         sleep 1s
         current=$((current + 1))
     done
+    return 1
 }
 
 function wait_for_container() {

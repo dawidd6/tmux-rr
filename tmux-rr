@@ -7,6 +7,7 @@ import os.path
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 TMUX_PATH = shutil.which("tmux") or ""
@@ -56,7 +57,7 @@ Description=tmux-rr
 
 [Service]
 ExecStart={TMUX_PATH} -D
-ExecStartPost=-{SCRIPT_PATH} restore
+ExecStartPost={SCRIPT_PATH} restore
 ExecStop=-{SCRIPT_PATH} save
 ExecStop={TMUX_PATH} kill-server
 
@@ -157,6 +158,24 @@ def save():
 
 
 def restore():
+    # ponytail: poll for 10s; use Type=notify if tmux ever supports it
+    for _ in range(100):
+        if (
+            subprocess.call(
+                [TMUX_PATH, "show-options", "-g"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            == 0
+        ):
+            break
+        time.sleep(0.1)
+    else:
+        raise TimeoutError("tmux server did not become ready")
+
+    if not STATE_FILE.exists():
+        return
+
     state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     for session_state in state["sessions"]:
         for window_state in session_state["windows"]:
