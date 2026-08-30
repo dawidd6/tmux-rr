@@ -17,10 +17,10 @@ function debug_shell() {
     "$SHELL" </dev/tty >/dev/tty 2>&1
 }
 
-function debug_shell_in_container() {
+function debug_shell_container() {
     echo 'DROPPING INTO INTERACTIVE DEBUG SHELL!' >/dev/tty
     echo 'Press CTRL-D to exit or write "exit" command.' >/dev/tty
-    shell_in_container "$1" </dev/tty >/dev/tty 2>&1
+    shell_container "$1" </dev/tty >/dev/tty 2>&1
 }
 
 function build_image() {
@@ -39,64 +39,62 @@ function destroy_container() {
     podman rm -f "$CONTAINER_NAME"
 }
 
-function shell_in_container() {
+function shell_container() {
     podman exec -it -u "$CONTAINER_USER_ID" -e XDG_RUNTIME_DIR="$CONTAINER_XDG_RUNTIME_DIR" "$CONTAINER_NAME" "$@"
 }
 
-function do_in_container() {
+function exec_container() {
     podman exec -u "$CONTAINER_USER_ID" -e XDG_RUNTIME_DIR="$CONTAINER_XDG_RUNTIME_DIR" "$CONTAINER_NAME" "$@"
 }
 
-function simulate_reboot() {
-    restart_container
-    wait_for_container
-    wait_for_project
-}
-
 function wait_until_succeeds() {
-    local max=10
+    local max=50
     local current=0
     while ((current < max)); do
         if "$@"; then
             return 0
         fi
-        sleep 1s
+        sleep 0.1
         current=$((current + 1))
     done
     return 1
 }
 
 function wait_for_container() {
-    wait_until_succeeds do_in_container sudo systemctl is-system-running --wait
-}
-
-function wait_for_project() {
-    wait_until_succeeds do_in_container systemctl --user is-active tmux-rr
+    wait_until_succeeds exec_container systemctl --user is-system-running --wait
 }
 
 function install_project() {
-    do_in_container sudo chsh -s /usr/bin/"$1" "$CONTAINER_USER_NAME"
     case "$1" in
     bash)
         # TODO: impl
         # shellcheck disable=SC2016
-        # do_in_container bash -c 'eval "$(./tmux-rr init bash)"'
+        # exec_container bash -c 'eval "$(./tmux-rr init bash)"'
         :
         ;;
     fish)
-        do_in_container fish -c './tmux-rr init fish | source'
+        exec_container fish -c './tmux-rr init fish | source'
         ;;
     esac
-    do_in_container systemctl --user daemon-reload
-    do_in_container systemctl --user start tmux-rr
-    wait_for_project
+    exec_container systemctl --user daemon-reload
+    exec_container systemctl --user start tmux-rr
+}
+
+function restart_project() {
+    exec_container systemctl --user restart tmux-rr
 }
 
 function list_panes {
-    run do_in_container tmux -N list-panes -a -F '
+    run exec_container tmux -N list-panes -a -F '
     #{session_name}
+    #{window_index}
     #{window_name}
-    #{window_layout}'
+    #{window_panes}
+    #{window_layout}
+    #{window_width}
+    #{window_height}
+    #{pane_index}
+    #{pane_current_path}'
     # shellcheck disable=SC2154
     [ "$status" -eq 0 ]
     [ -n "$output" ]
@@ -124,10 +122,11 @@ function teardown() {
 
 @test "fish_test" {
     install_project fish
-    do_in_container tmux -N set-option -g automatic-rename off
-    do_in_container tmux -N new-session -d -s test123
+    exec_container tmux -N set-option -g automatic-rename off
+    exec_container tmux -N new-session -d -s test-session
+    exec_container tmux -N new-window -d -t =test-session -c /tmp sleep inf
     expected="$(list_panes)"
-    simulate_reboot
+    restart_project
     actual="$(list_panes)"
     diff -u <(echo "$expected") <(echo "$actual")
 }
