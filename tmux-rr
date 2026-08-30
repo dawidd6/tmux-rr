@@ -3,10 +3,14 @@
 import base64
 import json
 import os
+import os.path
+import shutil
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
+
+TMUX_PATH = shutil.which("tmux") or ""
+SCRIPT_PATH = os.path.realpath(__file__)
 
 STATE_FILE = (
     Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state")
@@ -33,8 +37,54 @@ PANES_FORMAT = {
     "pane_index": "#{pane_index}",
     "pane_current_path": "#{pane_current_path}",
     "pane_current_command": "#{pane_current_command}",
-    "command": "#{@rr-command}",
+    "command": "#{@tmux-rr-command}",
 }
+
+HELP_MESSAGE = """
+Usage: tmux-rr <COMMAND>
+
+Commands:
+  clear          Remove saved state file
+  save           Dump all sessions to state file
+  init <SHELL>   Print shell integration (bash, fish, zsh)
+  restore        Restore sessions from state file
+""".strip()
+
+SYSTEMD_UNIT = f"""
+[Unit]
+Description=tmux-rr
+
+[Service]
+ExecStart={TMUX_PATH} -D
+ExecStartPost=-{SCRIPT_PATH} restore
+ExecStop=-{SCRIPT_PATH} save
+ExecStop={TMUX_PATH} kill-server
+
+[Install]
+WantedBy=default.target
+""".strip()
+
+# TODO: impl
+INIT_BASH = """
+echo TODO
+""".strip()
+
+INIT_FISH = f"""
+mkdir -p "$HOME/.config/systemd/user" "$HOME/.config/systemd/user/default.target.wants"
+printf '%s' '{SYSTEMD_UNIT}' > "$HOME/.config/systemd/user/tmux-rr.service"
+ln -fs "$HOME/.config/systemd/user/tmux-rr.service" "$HOME/.config/systemd/user/default.target.wants/tmux-rr.service"
+function __tmux_rr_command_saver --on-event fish_preexec
+    test -n "$TMUX" && tmux -N set-option -pq @tmux-rr-command "$(echo $argv | base64 -w0)"
+end
+function __tmux_rr_command_saver --on-event fish_postexec
+    test -n "$TMUX" && tmux -N set-option -pqu @tmux-rr-command
+end
+""".strip()
+
+# TODO: impl
+INIT_ZSH = """
+echo TODO
+""".strip()
 
 
 def clear():
@@ -43,10 +93,15 @@ def clear():
 
 def save():
     state = {
+        "settings": {
+            "automatic-rename": subprocess.check_output(
+                [TMUX_PATH, "show-options", "-gqv", "automatic-rename"], text=True
+            ).strip(),
+        },
         "sessions": [
             json.loads(session)
             for session in subprocess.check_output(
-                ["tmux", "list-sessions", "-F", json.dumps(SESSIONS_FORMAT)],
+                [TMUX_PATH, "list-sessions", "-F", json.dumps(SESSIONS_FORMAT)],
                 text=True,
             ).splitlines()
         ],
@@ -56,7 +111,7 @@ def save():
             json.loads(window)
             for window in subprocess.check_output(
                 [
-                    "tmux",
+                    TMUX_PATH,
                     "list-windows",
                     "-t",
                     f"={session_state['session_name']}",
@@ -71,7 +126,7 @@ def save():
                 json.loads(pane)
                 for pane in subprocess.check_output(
                     [
-                        "tmux",
+                        TMUX_PATH,
                         "list-panes",
                         "-t",
                         f"={session_state['session_name']}:{window_state['window_index']}",
@@ -85,7 +140,7 @@ def save():
                 pane_state["scrollback"] = base64.b64encode(
                     subprocess.check_output(
                         [
-                            "tmux",
+                            TMUX_PATH,
                             "capture-pane",
                             "-t",
                             f"={session_state['session_name']}:{window_state['window_index']}.{pane_state['pane_index']}",
@@ -109,7 +164,7 @@ def restore():
                 if (
                     subprocess.call(
                         [
-                            "tmux",
+                            TMUX_PATH,
                             "has-session",
                             "-t",
                             f"={session_state['session_name']}",
@@ -119,7 +174,7 @@ def restore():
                 ):
                     pane_state["pane_id"] = subprocess.check_output(
                         [
-                            "tmux",
+                            TMUX_PATH,
                             "new-session",
                             "-dPF",
                             "#{pane_id}",
@@ -141,7 +196,7 @@ def restore():
                 else:
                     pane_state["pane_id"] = subprocess.check_output(
                         [
-                            "tmux",
+                            TMUX_PATH,
                             "new-window",
                             "-dPF",
                             "#{pane_id}",
@@ -159,7 +214,7 @@ def restore():
             for pane_state in window_state["panes"][1:]:
                 pane_state["pane_id"] = subprocess.check_output(
                     [
-                        "tmux",
+                        TMUX_PATH,
                         "split-window",
                         "-dPF",
                         "#{pane_id}",
@@ -174,7 +229,7 @@ def restore():
                 ).strip()
                 subprocess.check_call(
                     [
-                        "tmux",
+                        TMUX_PATH,
                         "resize-pane",
                         "-t",
                         pane_state["pane_id"],
@@ -184,7 +239,7 @@ def restore():
                 )
             subprocess.check_call(
                 [
-                    "tmux",
+                    TMUX_PATH,
                     "select-layout",
                     "-t",
                     f"={session_state['session_name']}:{{end}}",
@@ -194,7 +249,7 @@ def restore():
             for pane_state in window_state["panes"]:
                 subprocess.check_call(
                     [
-                        "tmux",
+                        TMUX_PATH,
                         "respawn-pane",
                         "-k",
                         "-t",
@@ -209,7 +264,7 @@ def restore():
                 Path(
                     subprocess.check_output(
                         [
-                            "tmux",
+                            TMUX_PATH,
                             "display-message",
                             "-pt",
                             pane_state["pane_id"],
@@ -218,34 +273,43 @@ def restore():
                         text=True,
                     ).strip()
                 ).write_bytes(base64.b64decode(pane_state["scrollback"], validate=True))
-                subprocess.check_call(["tmux", "wait-for", "-S", "tmux-rr"])
+                subprocess.check_call([TMUX_PATH, "wait-for", "-S", "tmux-rr"])
 
 
 def help():
-    print(
-        textwrap.dedent("""\
-    Usage: tmux-rr <COMMAND>
-
-    Commands:
-      clear     TODO
-      save      TODO
-      restore   TODO
-    """).strip()
-    )
+    print(HELP_MESSAGE)
     exit(1)
 
 
+def init_bash():
+    print(INIT_BASH)
+
+
+def init_fish():
+    print(INIT_FISH)
+
+
+def init_zsh():
+    print(INIT_ZSH)
+
+
 if __name__ == "__main__":
-    match len(sys.argv):
-        case 2:
-            match sys.argv[1]:
-                case "clear":
-                    clear()
-                case "save":
-                    save()
-                case "restore":
-                    restore()
-                case _:
-                    help()
-        case _:
+    if len(sys.argv) == 1 or sys.argv[1] == "help":
+        help()
+    elif sys.argv[1] == "clear":
+        clear()
+    elif sys.argv[1] == "save":
+        save()
+    elif sys.argv[1] == "init":
+        if len(sys.argv) == 2:
             help()
+        elif sys.argv[2] == "bash":
+            init_bash()
+        elif sys.argv[2] == "fish":
+            init_fish()
+        elif sys.argv[2] == "zsh":
+            init_zsh()
+        else:
+            help()
+    elif sys.argv[1] == "restore":
+        restore()

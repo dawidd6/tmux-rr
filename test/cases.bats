@@ -5,6 +5,7 @@
 IMAGE_NAME=tmux-rr-test
 CONTAINER_NAME=tmux-rr-test
 CONTAINER_USER_ID=1000
+CONTAINER_USER_NAME=ubuntu
 CONTAINER_XDG_RUNTIME_DIR="/run/user/$CONTAINER_USER_ID"
 STATE_FILE_PATH="/home/test/.local/state/tmux-rr.json"
 
@@ -14,6 +15,12 @@ function debug_shell() {
     echo 'DROPPING INTO INTERACTIVE DEBUG SHELL!' >/dev/tty
     echo 'Press CTRL-D to exit or write "exit" command.' >/dev/tty
     "$SHELL" </dev/tty >/dev/tty 2>&1
+}
+
+function debug_shell_in_container() {
+    echo 'DROPPING INTO INTERACTIVE DEBUG SHELL!' >/dev/tty
+    echo 'Press CTRL-D to exit or write "exit" command.' >/dev/tty
+    shell_in_container "$1" </dev/tty >/dev/tty 2>&1
 }
 
 function build_image() {
@@ -30,6 +37,10 @@ function restart_container() {
 
 function destroy_container() {
     podman rm -f "$CONTAINER_NAME"
+}
+
+function shell_in_container() {
+    podman exec -it -u "$CONTAINER_USER_ID" -e XDG_RUNTIME_DIR="$CONTAINER_XDG_RUNTIME_DIR" "$CONTAINER_NAME" "$@"
 }
 
 function do_in_container() {
@@ -63,8 +74,21 @@ function wait_for_project() {
 }
 
 function install_project() {
-    do_in_container sudo make install
-    do_in_container systemctl --user enable --now tmux-rr
+    do_in_container sudo chsh -s /usr/bin/"$1" "$CONTAINER_USER_NAME"
+    case "$1" in
+    bash)
+        # TODO: impl
+        # shellcheck disable=SC2016
+        # do_in_container bash -c 'eval "$(./tmux-rr init bash)"'
+        :
+        ;;
+    fish)
+        do_in_container fish -c './tmux-rr init fish | source'
+        ;;
+    esac
+    do_in_container systemctl --user daemon-reload
+    do_in_container systemctl --user start tmux-rr
+    wait_for_project
 }
 
 function list_panes {
@@ -87,8 +111,6 @@ function setup_file() {
 function setup() {
     run_container
     wait_for_container
-    install_project
-    wait_for_project
 }
 
 # Teardowns
@@ -99,19 +121,12 @@ function teardown() {
 
 # Cases
 
-function main_test {
-    # debug_shell
+@test "fish_test" {
+    install_project fish
+    do_in_container tmux -N set-option -g automatic-rename off
     do_in_container tmux -N new-session -d -s test123
     expected="$(list_panes)"
     simulate_reboot
     actual="$(list_panes)"
-    [ "$expected" = "$actual" ]
+    diff -u <(echo "$expected") <(echo "$actual")
 }
-
-if [ -n "$CI" ]; then
-    for i in $(seq 1 10); do
-        bats_test_function -- main_test "$i"
-    done
-else
-    bats_test_function -- main_test
-fi

@@ -1,19 +1,16 @@
-ARG PYTHON_VERSION=3.14
-FROM python:${PYTHON_VERSION}
-
-ARG TMUX_VERSION=3.7c
-ADD https://github.com/tmux/tmux-builds/releases/download/v${TMUX_VERSION}/tmux-${TMUX_VERSION}-linux-x86_64.tar.gz /tmp/tmux.tar.gz
-RUN tar -xzf /tmp/tmux.tar.gz && mv tmux /usr/local/bin/tmux
+FROM docker.io/library/ubuntu:26.04
 
 # hadolint ignore=DL3008,DL3009
-RUN apt-get update && apt-get install --no-install-recommends -y systemd libpam-systemd dbus sudo
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    systemd libpam-systemd dbus sudo \
+    bash fish zsh \
+    python3 tmux
 
-RUN useradd -U -m -p '' -s /bin/bash test \
-    && echo 'test ALL=(ALL:ALL) NOPASSWD: ALL' >/etc/sudoers.d/test \
-    && chmod 0440 /etc/sudoers.d/test
+RUN echo 'ubuntu ALL=(ALL:ALL) NOPASSWD: ALL' >/etc/sudoers.d/ubuntu \
+    && chmod 0440 /etc/sudoers.d/ubuntu
 
 RUN mkdir -p /etc/systemd/system/console-getty.service.d \
     && echo '[Service]' >/etc/systemd/system/console-getty.service.d/override.conf \
-    && echo 'SetCredential=agetty.autologin:test' >>/etc/systemd/system/console-getty.service.d/override.conf
+    && echo 'SetCredential=agetty.autologin:ubuntu' >>/etc/systemd/system/console-getty.service.d/override.conf
 
 ENTRYPOINT ["/usr/lib/systemd/systemd"]
