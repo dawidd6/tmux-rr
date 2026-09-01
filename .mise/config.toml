@@ -2,10 +2,20 @@
 lockfile = true
 
 [tools]
-python = "latest"
-ruff = "latest"
-ty = "latest"
+"go:golang.org/x/tools/cmd/goimports" = "latest"
+"go:golang.org/x/tools/gopls" = "latest"
+"go:mvdan.cc/gofumpt" = "latest"
+go = "latest"
 bats = "latest"
 
+[tasks.build]
+run = "go build ./cmd/tmux-rr"
+
 [tasks.test]
+depends = ["unit-test", "integration-test"]
+
+[tasks.unit-test]
+run = "go test -v ./..."
+
+[tasks.integration-test]
 run = "bats test/cases.bats"

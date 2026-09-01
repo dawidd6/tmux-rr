@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-TMUX_PATH = shutil.which("tmux") or ""
+TMUX_PATH = os.getenv("TMUX_PATH") or shutil.which("tmux") or "TMUX_NOT_FOUND_ERROR"
 SCRIPT_PATH = os.path.realpath(__file__)
 
 STATE_FILE = (
@@ -56,6 +56,7 @@ SYSTEMD_UNIT = f"""
 Description=tmux-rr
 
 [Service]
+Environment=TMUX_PATH={TMUX_PATH}
 ExecStart={TMUX_PATH} -D
 ExecStartPost={SCRIPT_PATH} restore
 ExecStop=-{SCRIPT_PATH} save
@@ -95,9 +96,10 @@ def clear():
 def save():
     state = {
         "settings": {
-            "automatic-rename": subprocess.check_output(
-                [TMUX_PATH, "show-options", "-gqv", "automatic-rename"], text=True
-            ).strip(),
+            opt: subprocess.check_output(
+                [TMUX_PATH, "show-options", "-gqv", opt], text=True
+            ).strip()
+            for opt in ["automatic-rename"]
         },
         "sessions": [
             json.loads(session)
@@ -158,7 +160,6 @@ def save():
 
 
 def restore():
-    # ponytail: poll for 10s; use Type=notify if tmux ever supports it
     for _ in range(100):
         if (
             subprocess.call(
@@ -293,6 +294,10 @@ def restore():
                     ).strip()
                 ).write_bytes(base64.b64decode(pane_state["scrollback"], validate=True))
                 subprocess.check_call([TMUX_PATH, "wait-for", "-S", "tmux-rr"])
+            if state["settings"]["automatic-rename"] == "on":
+                subprocess.check_call(
+                    [TMUX_PATH, "set-option", "-g", "automatic-rename", "on"]
+                )
 
 
 def help():

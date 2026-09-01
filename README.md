@@ -1,2 +1,7 @@
 # tmux-rr
-:coffin: Tmux companion for saving and restoring complete sessions
+
+Automatically save your tmux sessions and restore them after reboot!
+
+`tmux-rr` == `tmux resurrection remix`
+
+**Work in progress**
