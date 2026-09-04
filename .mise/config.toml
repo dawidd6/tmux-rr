@@ -5,36 +5,30 @@ lockfile = true
 "go:golang.org/x/tools/cmd/goimports" = "latest"
 "go:golang.org/x/tools/gopls" = "latest"
 "go:mvdan.cc/gofumpt" = "latest"
-go = "latest"
-uv = "latest"
 "pipx:robotcode" = { version = "latest", extras = "all" }
 "pipx:robotframework-robocop" = "latest"
 "pipx:robotframework" = "latest"
 golangci-lint = "latest"
-
-[tasks.tests]
-depends = ["unit-tests", "e2e-tests"]
+go = "latest"
+uv = "latest"
 
 [tasks.build]
 run = "go build ./cmd/tmux-rr"
 
+[tasks.image-build]
+depends = ["build"]
+run = "podman build -t tmux-rr ."
+
+[tasks.e2e-tests]
+depends = ["image-build"]
+run = "robot --loglevel TRACE --outputdir e2e/results -- e2e/tests.robot"
+
 [tasks.unit-tests]
 run = "go test -v ./..."
 
-[tasks.e2e-image-build]
-# run = "podman build -t tmux-rr-test -f e2e/Containerfile e2e"
-run = """
-if test -n "$CI" && podman image exists tmux-rr-test; then
-    echo Skipping building in CI because of caching
-else
-    podman build -t tmux-rr-test -f e2e/Containerfile e2e
-fi
-"""
+[tasks.tests]
+depends = ["unit-tests", "e2e-tests"]
 
-[tasks.e2e-tests]
-depends = ["build", "e2e-image-build"]
-run = "robot --loglevel TRACE --outputdir e2e/results -- e2e/tests.robot"
-
-[tasks.e2e-container]
-depends = ["build", "e2e-image-build"]
-run = "podman run --cap-add SYS_ADMIN -it --rm -v .:/wd -w /wd tmux-rr-test"
+[tasks.container]
+depends = ["image-build"]
+run = "podman run --cap-add SYS_ADMIN -it --rm -v .:/wd -w /wd tmux-rr"

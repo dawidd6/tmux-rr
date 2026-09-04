@@ -12,6 +12,10 @@ RUN mkdir -p /etc/systemd/system/console-getty.service.d \
     && echo '[Service]' >/etc/systemd/system/console-getty.service.d/override.conf \
     && echo 'SetCredential=agetty.autologin:ubuntu' >>/etc/systemd/system/console-getty.service.d/override.conf
 
-RUN chsh -s /usr/bin/fish ubuntu
+RUN chsh -s /usr/bin/fish ubuntu \
+    && mkdir -p /home/ubuntu/.config/fish \
+    && echo 'tmux-rr init fish | source' > /home/ubuntu/.config/fish/config.fish
+
+COPY tmux-rr /usr/local/bin/tmux-rr
 
 ENTRYPOINT ["/usr/lib/systemd/systemd"]

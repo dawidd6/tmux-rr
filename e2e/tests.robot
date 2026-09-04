@@ -8,8 +8,8 @@ Test Teardown    Test Teardown
 
 
 *** Variables ***
-${CONTAINER}=    tmux-rr-test
-${IMAGE}=        tmux-rr-test
+${CONTAINER}=    tmux-rr
+${IMAGE}=        tmux-rr
 ${UID}=          1000
 ${GID}=          1000
 
@@ -17,7 +17,6 @@ ${GID}=          1000
 *** Test Cases ***
 Fish
     [Documentation]  TODO
-    Run Command In Container    fish -c './tmux-rr init fish | source'  expected_stdout=False
     Run Command In Container    tmux -N new-session -d -s test123   expected_stdout=False
     ${before}=    Run Command In Container
     ...    tmux -N list-panes -a -F '#{session_name} #{window_name} #{window_layout}'
