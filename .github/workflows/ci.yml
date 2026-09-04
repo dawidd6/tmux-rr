@@ -1,10 +1,10 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches:
       - master
-  pull_request:
 
 permissions:
   contents: read
@@ -21,28 +21,13 @@ jobs:
       - name: Install mise
         uses: jdx/mise-action@v4 # zizmor: ignore[unpinned-uses]
 
-      - name: Cache e2e-image
-        id: e2e-image-cache
-        uses: actions/cache@v6  # zizmor: ignore[unpinned-uses]
-        with:
-          path: e2e-image.tar
-          key: e2e-image-${{ runner.os }}-${{ hashFiles('e2e/Containerfile') }}
+      - name: Run tests
+        run: mise run tests
 
-      - name: Load e2e-image
-        if: steps.e2e-image-cache.outputs.cache-hit == 'true'
-        run: podman load --input e2e-image.tar
-
-      - name: Run e2e-tests
-        run: mise run e2e-tests
-
-      - name: Save e2e-image
-        if: steps.e2e-image-cache.outputs.cache-hit != 'true'
-        run: podman save --output e2e-image.tar tmux-rr-test:latest
-
-      - name: Publish e2e-results
+      - name: Publish results
         if: always()
         uses: actions/upload-artifact@v7 # zizmor: ignore[unpinned-uses]
         with:
-          name: e2e-results.html
+          name: log.html
           path: e2e/results/log.html
           archive: false
