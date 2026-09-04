@@ -30,7 +30,7 @@ jobs:
 
       - name: Load e2e-image
         if: steps.e2e-image-cache.outputs.cache-hit == 'true'
-        run: test -f e2e-image.tar && podman load --input e2e-image.tar || true
+        run: podman load --input e2e-image.tar
 
       - name: Run e2e-tests
         run: mise run e2e-tests

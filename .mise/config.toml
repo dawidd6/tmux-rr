@@ -22,7 +22,14 @@ run = "go build ./cmd/tmux-rr"
 run = "go test -v ./..."
 
 [tasks.e2e-image-build]
-run = "podman build -t tmux-rr-test -f e2e/Containerfile e2e"
+# run = "podman build -t tmux-rr-test -f e2e/Containerfile e2e"
+run = """
+if test -n "$CI" && podman image exists tmux-rr-test; then
+    echo Skipping building in CI because of caching
+else
+    podman build -t tmux-rr-test -f e2e/Containerfile e2e
+fi
+"""
 
 [tasks.e2e-tests]
 depends = ["build", "e2e-image-build"]
