@@ -6,16 +6,28 @@ lockfile = true
 "go:golang.org/x/tools/gopls" = "latest"
 "go:mvdan.cc/gofumpt" = "latest"
 go = "latest"
-bats = "latest"
+uv = "latest"
+"pipx:robotcode" = { version = "latest", extras = "all" }
+"pipx:robotframework-robocop" = "latest"
+"pipx:robotframework" = "latest"
+golangci-lint = "latest"
+
+[tasks.tests]
+depends = ["unit-tests", "e2e-tests"]
 
 [tasks.build]
 run = "go build ./cmd/tmux-rr"
 
-[tasks.test]
-depends = ["unit-test", "integration-test"]
-
-[tasks.unit-test]
+[tasks.unit-tests]
 run = "go test -v ./..."
 
-[tasks.integration-test]
-run = "bats test/cases.bats"
+[tasks.e2e-image-build]
+run = "podman build -t tmux-rr-test -f e2e/Containerfile e2e"
+
+[tasks.e2e-tests]
+depends = ["e2e-image-build"]
+run = "robot --loglevel TRACE -- e2e/tests.robot"
+
+[tasks.e2e-container]
+depends = ["e2e-image-build"]
+run = "podman run -it --rm --name tmux-rr-test -v .:/wd -w /wd tmux-rr-test"

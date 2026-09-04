@@ -97,7 +97,7 @@ func run(args ...string) ([]byte, error) {
 	}
 
 	runFormatted[Session](func(s string) []string {
-		return "abc", "xyz"
+		return []string{"abc"}
 	})
 
 	return out, nil
