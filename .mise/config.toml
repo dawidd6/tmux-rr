@@ -25,9 +25,9 @@ run = "go test -v ./..."
 run = "podman build -t tmux-rr-test -f e2e/Containerfile e2e"
 
 [tasks.e2e-tests]
-depends = ["e2e-image-build"]
+depends = ["build", "e2e-image-build"]
 run = "robot --loglevel TRACE -- e2e/tests.robot"
 
 [tasks.e2e-container]
-depends = ["e2e-image-build"]
+depends = ["build", "e2e-image-build"]
 run = "podman run --cap-add SYS_ADMIN -it --rm -v .:/wd -w /wd tmux-rr-test"

@@ -1,52 +1,57 @@
 *** Settings ***
-Documentation       Test cases for tmux-rr
+Documentation    Test cases for tmux-rr
 
-Library             Process
+Library          Process
 
-Test Setup          Test Setup
-Test Teardown       Test Teardown
+Test Setup       Test Setup
+Test Teardown    Test Teardown
 
 
 *** Variables ***
-${CONTAINERFILE}=       Containerfile.test
-${CONTAINER}=           tmux-rr-test
-${IMAGE}=               tmux-rr-test
-${USER}=                test
-${UID}=                 1000
-${GID}=                 1000
+${CONTAINER}=    tmux-rr-test
+${IMAGE}=        tmux-rr-test
+${UID}=          1000
+${GID}=          1000
 
 
 *** Test Cases ***
-Test
+Fish
     [Documentation]  TODO
-    Run Command In Container    tmux -N new-session -d -s test123
+    Run Command In Container    fish -c './tmux-rr init fish | source'  expected_stdout=False
+    Run Command In Container    tmux -N new-session -d -s test123   expected_stdout=False
     ${before}=    Run Command In Container
-    ...    tmux -N list-panes -a -F '#{session_name}\t#{window_name}\t#{window_layout}'
+    ...    tmux -N list-panes -a -F '#{session_name} #{window_name} #{window_layout}'
     ${after}=    Run Command In Container
-    ...    tmux -N list-panes -a -F '#{session_name}\t#{window_name}\t#{window_layout}'
+    ...    tmux -N list-panes -a -F '#{session_name} #{window_name} #{window_layout}'
     Should Be Equal As Strings    ${before}    ${after}
 
 
 *** Keywords ***
 Run Command
     [Documentation]   Execute a command on the host, check exit code and return result
-    [Arguments]    ${cmd}    ${expected_rc}=0
+    [Arguments]    ${cmd}    ${expected_rc}=0    ${expected_stdout}=True    ${expected_stderr}=False
     ${result}=    Run Process    ${cmd}    shell=True
     Log Many    ${result.rc}    ${result.stdout}    ${result.stderr}
+    IF    ${expected_stdout}
+        Should Not Be Empty    ${result.stdout}
+    ELSE
+        Should Be Empty    ${result.stdout}
+    END
+    IF    ${expected_stderr}
+        Should Not Be Empty    ${result.stderr}
+    ELSE
+        Should Be Empty    ${result.stderr}
+    END
     Should Be Equal As Integers    ${result.rc}    ${{int($expected_rc)}}
     RETURN    ${result}
 
 Run Command In Container
     [Documentation]   Execute a command in the test container, check exit code and return result
-    [Arguments]    ${cmd}    ${expected_rc}=0
+    [Arguments]    ${cmd}    ${expected_rc}=0    ${expected_stdout}=True    ${expected_stderr}=False
     ${result}=    Run Command
     ...    podman exec -u ${UID}:${GID} -e XDG_RUNTIME_DIR=/run/user/${UID} ${CONTAINER} ${cmd}
-    ...    expected_rc=${expected_rc}
+    ...    expected_rc=${expected_rc}    expected_stdout=${expected_stdout}    expected_stderr=${expected_stderr}
     RETURN    ${result}
-
-Wait For Tmux In Container
-    [Documentation]  TODO
-    Wait Until Keyword Succeeds    20x    1s    Run Command In Container    tmux -N start-server
 
 Wait For Systemd In Container
     [Documentation]   Block execution until systemd is fully running in the test container
