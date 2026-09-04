@@ -30,4 +30,4 @@ run = "robot --loglevel TRACE -- e2e/tests.robot"
 
 [tasks.e2e-container]
 depends = ["e2e-image-build"]
-run = "podman run -it --rm --name tmux-rr-test -v .:/wd -w /wd tmux-rr-test"
+run = "podman run --cap-add SYS_ADMIN -it --rm -v .:/wd -w /wd tmux-rr-test"

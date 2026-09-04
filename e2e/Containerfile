@@ -6,8 +6,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     bash fish zsh tmux
 
 RUN echo 'ubuntu ALL=(ALL:ALL) NOPASSWD: ALL' >/etc/sudoers.d/ubuntu \
-    && chmod 0440 /etc/sudoers.d/ubuntu \
-    && adduser ubuntu sudo
+    && chmod 0440 /etc/sudoers.d/ubuntu
 
 RUN mkdir -p /etc/systemd/system/console-getty.service.d \
     && echo '[Service]' >/etc/systemd/system/console-getty.service.d/override.conf \
