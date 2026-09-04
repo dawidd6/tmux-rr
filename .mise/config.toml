@@ -26,7 +26,7 @@ run = "podman build -t tmux-rr-test -f e2e/Containerfile e2e"
 
 [tasks.e2e-tests]
 depends = ["build", "e2e-image-build"]
-run = "robot --loglevel TRACE -- e2e/tests.robot"
+run = "robot --loglevel TRACE --outputdir e2e/results -- e2e/tests.robot"
 
 [tasks.e2e-container]
 depends = ["build", "e2e-image-build"]

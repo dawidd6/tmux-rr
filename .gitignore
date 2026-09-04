@@ -1,4 +1,2 @@
 /tmux-rr
-/log.html
-/report.html
-/output.xml
+/e2e/results
