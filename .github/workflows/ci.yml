@@ -20,6 +20,8 @@ jobs:
 
       - name: Install go
         uses: actions/setup-go@v7 # zizmor: ignore[unpinned-uses]
+        with:
+          check-latest: true
 
       - name: Instal rf
         run: pipx install robotframework
