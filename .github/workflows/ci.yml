@@ -18,11 +18,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install mise
-        uses: jdx/mise-action@v4 # zizmor: ignore[unpinned-uses]
+      - name: Install tools
+        run: /home/linuxbrew/.linuxbrew/bin/brew install robot-framework go
 
       - name: Run tests
-        run: mise run tests
+        run: make ci
 
       - name: Publish results
         if: always()
