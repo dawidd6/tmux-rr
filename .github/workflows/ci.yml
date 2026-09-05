@@ -23,7 +23,6 @@ jobs:
         with:
           tool_versions: |
             go latest
-            uv latest
             pipx:robotframework latest
 
       - name: Run tests
